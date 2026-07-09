@@ -1,0 +1,154 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="one_joint_servo">
+  <xacro:arg name="servo_model" default="sts3215"/>
+  <xacro:arg name="joint_name" default="servo_output_joint"/>
+  <xacro:arg name="parent_link" default="base_link"/>
+  <xacro:arg name="joint_limit_lower" default="-3.14159"/>
+  <xacro:arg name="joint_limit_upper" default="3.14159"/>
+  <xacro:arg name="joint_effort" default="4.0"/>
+  <xacro:arg name="joint_velocity" default="6.0"/>
+
+  <!-- Defaults are close to common SMS/STS smart servos and are easy to tune per model. -->
+  <xacro:property name="case_x" value="0.040"/>
+  <xacro:property name="case_y" value="0.020"/>
+  <xacro:property name="case_z" value="0.040"/>
+  <xacro:property name="ear_x" value="0.054"/>
+  <xacro:property name="ear_y" value="0.020"/>
+  <xacro:property name="ear_z" value="0.003"/>
+  <xacro:property name="horn_radius" value="0.012"/>
+  <xacro:property name="horn_length" value="0.070"/>
+  <xacro:property name="horn_thickness" value="0.004"/>
+  <xacro:property name="shaft_radius" value="0.003"/>
+  <xacro:property name="shaft_length" value="0.006"/>
+  <xacro:property name="servo_mass" value="0.055"/>
+  <xacro:property name="horn_mass" value="0.010"/>
+
+  <xacro:macro name="box_inertial" params="mass x y z">
+    <inertial>
+      <mass value="${mass}"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+        ixx="${mass * (y * y + z * z) / 12.0}"
+        ixy="0"
+        ixz="0"
+        iyy="${mass * (x * x + z * z) / 12.0}"
+        iyz="0"
+        izz="${mass * (x * x + y * y) / 12.0}"/>
+    </inertial>
+  </xacro:macro>
+
+  <link name="$(arg parent_link)">
+    <visual>
+      <origin xyz="0 0 -0.004" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.080 0.050 0.008"/>
+      </geometry>
+      <material name="base_black">
+        <color rgba="0.03 0.03 0.035 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.004" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.080 0.050 0.008"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="servo_case">
+    <xacro:box_inertial mass="${servo_mass}" x="${case_x}" y="${case_y}" z="${case_z}"/>
+    <visual name="case">
+      <origin xyz="0 0 ${case_z / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${case_x} ${case_y} ${case_z}"/>
+      </geometry>
+      <material name="servo_blue">
+        <color rgba="0.04 0.24 0.75 1.0"/>
+      </material>
+    </visual>
+    <visual name="top_mount_ear">
+      <origin xyz="0 0 ${case_z + ear_z / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ear_x} ${ear_y} ${ear_z}"/>
+      </geometry>
+      <material name="servo_blue"/>
+    </visual>
+    <visual name="bottom_mount_ear">
+      <origin xyz="0 0 ${ear_z / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${ear_x} ${ear_y} ${ear_z}"/>
+      </geometry>
+      <material name="servo_blue"/>
+    </visual>
+    <visual name="output_boss">
+      <origin xyz="0 0 ${case_z + ear_z + shaft_length / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${horn_radius}" length="${shaft_length}"/>
+      </geometry>
+      <material name="shaft_gray">
+        <color rgba="0.55 0.55 0.58 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${case_z / 2.0}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${case_x} ${case_y} ${case_z}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="servo_mount_joint" type="fixed">
+    <parent link="$(arg parent_link)"/>
+    <child link="servo_case"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="servo_horn">
+    <xacro:box_inertial
+      mass="${horn_mass}"
+      x="${horn_length}"
+      y="${horn_radius * 2.0}"
+      z="${horn_thickness}"/>
+    <visual name="round_horn_center">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${horn_radius}" length="${horn_thickness}"/>
+      </geometry>
+      <material name="horn_white">
+        <color rgba="0.92 0.92 0.88 1.0"/>
+      </material>
+    </visual>
+    <visual name="horn_arm">
+      <origin xyz="${horn_length / 2.0} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${horn_length} ${horn_radius * 0.8} ${horn_thickness}"/>
+      </geometry>
+      <material name="horn_white"/>
+    </visual>
+    <collision>
+      <origin xyz="${horn_length / 2.0} 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${horn_length} ${horn_radius * 2.0} ${horn_thickness}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="$(arg joint_name)" type="revolute">
+    <parent link="servo_case"/>
+    <child link="servo_horn"/>
+    <origin xyz="0 0 ${case_z + ear_z + shaft_length + horn_thickness / 2.0}" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit
+      lower="$(arg joint_limit_lower)"
+      upper="$(arg joint_limit_upper)"
+      effort="$(arg joint_effort)"
+      velocity="$(arg joint_velocity)"/>
+  </joint>
+
+  <gazebo reference="servo_case">
+    <material>Gazebo/Blue</material>
+  </gazebo>
+  <gazebo reference="servo_horn">
+    <material>Gazebo/White</material>
+  </gazebo>
+</robot>
